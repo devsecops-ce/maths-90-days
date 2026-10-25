@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Maths 90 Days</title>
-  <meta name="description" content="A 90-day Class 8 maths plan: one lesson and one test a day, from the very basics to expert level.">
+  <meta name="description" content="A 90-day Class 8 maths plan: one lesson and two tests a day, from the very basics to expert level.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
@@ -13,21 +13,19 @@
 <body>
   <header class="topbar">
     <a href="#" class="brand"><span class="logo">∑</span> Maths 90 Days <small>Class 8</small></a>
-    <button id="settingsBtn" class="ghost" aria-label="Settings">⚙︎ Settings</button>
+    <nav id="userbar" class="userbar"></nav>
   </header>
   <main id="app"></main>
   <footer class="foot">
-    Free practice for every student · Based on the NCERT Class 8 syllabus · Progress is saved on this device only
+    Free practice for every student · Based on the NCERT Class 8 syllabus · <a href="admin.html">Admin</a>
   </footer>
 
   <dialog id="settings">
-    <form method="dialog">
+    <form method="dialog" class="form">
       <h3>Settings</h3>
-      <label>Student name <input id="nameInput" maxlength="30" placeholder="Your name"></label>
-      <label class="row"><input type="checkbox" id="unlockAll"> Teacher mode: unlock all 90 days</label>
-      <p class="muted small">Normally each day unlocks when you score 6/10 or more on the day before.</p>
-      <div class="btns">
-        <button id="resetBtn" type="button" class="danger">Reset all progress</button>
+      <div id="setBody"></div>
+      <div class="btns end">
+        <button value="cancel" class="ghost" formnovalidate>Cancel</button>
         <button value="ok" class="primary">Save</button>
       </div>
     </form>
@@ -37,6 +35,9 @@
   <script src="js/days1.js"></script>
   <script src="js/days2.js"></script>
   <script src="js/days3.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/review.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

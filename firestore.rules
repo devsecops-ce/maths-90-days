@@ -1,0 +1,31 @@
+rules_version = '2';
+// Students read/write only their own data; admins (users/{uid}.role == 'admin') can read everything.
+// Students cannot give themselves admin rights or unlock all days. Saved test results can never be edited.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'student' && request.resource.data.unlockAll == false;
+      allow update: if isAdmin() || (signedIn() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.unlockAll == resource.data.unlockAll);
+      allow delete: if isAdmin();
+    }
+
+    match /results/{id} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.test in [1, 2]
+        && request.resource.data.day is int && request.resource.data.day >= 1 && request.resource.data.day <= 90
+        && request.resource.data.score is int && request.resource.data.score >= 0 && request.resource.data.score <= 10;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}
