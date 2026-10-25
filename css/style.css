@@ -166,7 +166,7 @@ main.wide { max-width: 1300px; }
 .tabs a.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
 .form label { display: block; margin: 10px 0; font-weight: 700; }
 .form label.row { display: flex; gap: 8px; align-items: center; }
-.form input:not([type=checkbox]), .toolbar input, .toolbar select { display: block; width: 100%; margin-top: 5px; padding: 10px 12px; font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.form input:not([type=checkbox]), .form select, .form textarea, .toolbar input, .toolbar select { display: block; width: 100%; margin-top: 5px; padding: 10px 12px; font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form .two label { margin: 4px 0; }
 .err { color: var(--bad); font-weight: 700; min-height: 1em; }
@@ -177,7 +177,7 @@ dl.info { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 
 dl.info dt { color: var(--muted); font-size: .82rem; font-weight: 700; }
 dl.info dd { margin: 0; font-weight: 700; word-break: break-word; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 12px 0 18px; }
-.toolbar { display: grid; grid-template-columns: 2fr 1fr 1fr 1.3fr auto; gap: 10px; margin-bottom: 14px; align-items: end; }
+.toolbar { display: grid; grid-template-columns: 2fr 1fr 1fr 1.3fr auto auto; gap: 10px; margin-bottom: 14px; align-items: end; }
 .toolbar input, .toolbar select { margin: 0; }
 .tablewrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .93rem; }
@@ -200,3 +200,6 @@ code { background: var(--bg); padding: 1px 6px; border-radius: 6px; }
   .heat { grid-template-columns: repeat(10, 1fr); }
   .userbar .ghost { padding: 6px 9px; font-size: .82rem; }
 }
+
+.form textarea { font-family: ui-monospace, Menlo, monospace; font-size: .9rem; resize: vertical; }
+.toolbar .primary { white-space: nowrap; text-align: center; }

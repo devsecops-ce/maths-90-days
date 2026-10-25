@@ -33,6 +33,22 @@ const Cloud = {
   resetPassword(email) { return this.auth.sendPasswordResetEmail(email); },
   async profile(uid) { const d = await this.users.doc(uid).get(); return d.exists ? { uid, ...d.data() } : null; },
   updateUser(uid, data) { return this.users.doc(uid).update(data); },
+  // Admin adds an account. A second app instance creates it so the admin stays signed in;
+  // the new user writes its own profile, which the security rules require.
+  async addUser(info, password, role, addedBy) {
+    if (!this.second) {
+      this.second = firebase.initializeApp(FIREBASE_CONFIG, 'admin-add');
+      await this.second.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
+    }
+    const a = this.second.auth();
+    const cred = await a.createUserWithEmailAndPassword(info.email, password);
+    try {
+      await this.second.firestore().collection('users').doc(cred.user.uid)
+        .set({ ...info, role: 'student', unlockAll: false, progress: {}, days: [], addedBy, createdAt: this.ts() });
+    } finally { await a.signOut(); }
+    if (role === 'admin') await this.updateUser(cred.user.uid, { role: 'admin' });
+    return cred.user.uid;
+  },
   async saveResult(me, r, rec) {
     await this.results.add({ ...r, uid: me.uid, name: me.name, createdAt: this.ts() });
     await this.users.doc(me.uid).update({

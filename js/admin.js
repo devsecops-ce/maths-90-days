@@ -46,6 +46,7 @@ function dashboard() {
       <select id="fsection">${opt('', FILTER.section, 'All classes')}${sections.map((s) => opt(s, FILTER.section)).join('')}</select>
       <select id="fsort">${[['name', 'Sort: name'], ['progress', 'Sort: most days passed'], ['score', 'Sort: highest score'], ['low', 'Sort: needs help first'], ['active', 'Sort: recently active']].map(([v, l]) => opt(v, FILTER.sort, l)).join('')}</select>
       <button class="ghost" id="csv">⬇ Export CSV</button>
+      <a class="primary" href="#add">➕ Add students</a>
     </div>
     <div class="tablewrap"><table class="click">
       <thead><tr><th>Student</th><th>School</th><th>Class</th><th>Roll</th><th>Phone</th><th>Days passed</th><th>Reached</th><th>Tests</th><th>Avg</th><th>Today</th><th>Last active</th></tr></thead>
@@ -162,6 +163,95 @@ async function reviewView(uid, day, date) {
     <div class="review-wrap">${dayReview(day, date, rs, esc(u.name) + ' ·')}</div>`;
 }
 
+// ---------- Add students ----------
+const FIELDS = [['name', 'Full name'], ['email', 'Email'], ['school', 'School'], ['section', 'Class & section'], ['roll', 'Roll no.'], ['phone', 'Parent phone'], ['city', 'City']];
+const genPassword = () => { const c = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < 4; i++) s += c[R(0, c.length - 1)]; return 'Maths' + s + R(10, 99); };
+let ADDED = [];
+
+function addView(tab) {
+  const bulk = tab === 'bulk';
+  app.innerHTML = `
+  <nav class="crumbs"><a href="#">← All students</a></nav>
+  <div class="panel">
+    <h1>Add students</h1>
+    <div class="tabs"><a class="${bulk ? '' : 'on'}" href="#add">One student</a><a class="${bulk ? 'on' : ''}" href="#add/bulk">Whole class (paste a list)</a></div>
+    ${bulk ? `
+    <p>Paste one student per line, in this column order (copy straight from Excel or Google Sheets, or separate with commas):</p>
+    <p><code>Name, Email, School, Class & section, Roll no., Parent phone, City</code> — only <b>Name</b> and <b>Email</b> are required. A header row is skipped automatically.</p>
+    <form id="bf" class="form">
+      <textarea name="rows" rows="10" placeholder="Anjali Reddy, anjali@gmail.com, ZP High School, 8-A, 12, 9848000012, Guntur&#10;Ravi Kumar, ravi@gmail.com, ZP High School, 8-A, 13"></textarea>
+      <div class="two"><label>Default school (if blank) <input name="dschool" maxlength="60"></label><label>Default class & section (if blank) <input name="dsection" maxlength="20" placeholder="8-A"></label></div>
+      <p class="muted small">Each student gets a random password, shown after adding so you can share it.</p>
+      <button class="primary big">Add all</button>
+    </form>` : `
+    <form id="sf" class="form">
+      <div class="two"><label>Full name * <input name="name" required maxlength="40"></label><label>Email * <input name="email" type="email" required></label></div>
+      <div class="two"><label>School <input name="school" maxlength="60"></label><label>Class & section <input name="section" maxlength="20" placeholder="8-A"></label></div>
+      <div class="two"><label>Roll number <input name="roll" maxlength="15"></label><label>Parent phone <input name="phone" type="tel" maxlength="15"></label></div>
+      <div class="two"><label>City / village <input name="city" maxlength="40"></label><label>Password (min 6) <input name="password" minlength="6" value="${genPassword()}"></label></div>
+      <label>Account type <select name="role"><option value="student">Student</option><option value="admin">Admin (teacher)</option></select></label>
+      <button class="primary big">Add</button>
+    </form>`}
+  </div>
+  <div id="addOut">${ADDED.length ? addedTable() : ''}</div>`;
+  if (bulk) document.getElementById('bf').onsubmit = bulkAdd;
+  else document.getElementById('sf').onsubmit = singleAdd;
+}
+
+const clean = (o) => { const r = {}; FIELDS.forEach(([k]) => { r[k] = String(o[k] || '').trim(); }); r.email = r.email.toLowerCase(); return r; };
+async function createOne(info, password, role) {
+  const row = { ...info, password, role, status: '⏳ adding…' };
+  ADDED.unshift(row); showAdded();
+  try {
+    if (!/^\S+@\S+\.\S+$/.test(info.email)) throw { code: 'invalid-email' };
+    if (!info.name) throw { message: 'Name is missing' };
+    const uid = await Cloud.addUser(info, password, role, ME.uid);
+    row.status = '✅ added'; row.uid = uid;
+    USERS.push({ uid, ...info, role, progress: {}, days: [], lastT: 0 });
+  } catch (x) {
+    const c = x.code || '';
+    row.status = '❌ ' + (/email-already-in-use/.test(c) ? 'email already registered' : /invalid-email/.test(c) ? 'invalid email' : /too-many-requests/.test(c) ? 'too many sign-ups — wait an hour and retry' : /weak-password/.test(c) ? 'password too short' : (x.message || 'failed'));
+    row.password = '';
+  }
+  showAdded();
+  return row;
+}
+async function singleAdd(e) {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target)), btn = e.target.querySelector('button');
+  btn.disabled = true;
+  const r = await createOne(clean(f), f.password, f.role);
+  btn.disabled = false;
+  if (r.status.startsWith('✅')) { e.target.reset(); e.target.password.value = genPassword(); }
+}
+async function bulkAdd(e) {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target)), btn = e.target.querySelector('button');
+  const lines = f.rows.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    .map((l) => l.split(l.includes('\t') ? '\t' : ',').map((x) => x.trim()))
+    .filter((c) => !/^name$/i.test(c[0]) && c.some(Boolean));
+  if (!lines.length) return alert('Paste at least one line: Name, Email, …');
+  if (!confirm(`Create ${lines.length} student account${lines.length > 1 ? 's' : ''}?`)) return;
+  btn.disabled = true;
+  for (const c of lines) {
+    const info = clean(Object.fromEntries(FIELDS.map(([k], i) => [k, c[i]])));
+    info.school = info.school || f.dschool.trim(); info.section = info.section || f.dsection.trim();
+    await createOne(info, genPassword(), 'student');
+  }
+  btn.disabled = false;
+  e.target.rows.value = '';
+}
+function showAdded() { const o = document.getElementById('addOut'); if (o) o.innerHTML = addedTable(); }
+function addedTable() {
+  const ok = ADDED.filter((r) => r.status.startsWith('✅'));
+  return `<div class="panel"><h2>Added in this session</h2>
+    <p class="muted">Give each student their email and password. They log in at <b>${esc(location.origin + location.pathname.replace('admin.html', ''))}</b> and can set a new password with “Forgot password?”. Passwords are shown only here — download the list now.</p>
+    <div class="btns"><button class="primary" onclick="downloadCSV('new-student-logins-${today()}.csv', [['Name','Email','Password','School','Class','Roll','Role']].concat(ADDED.filter((r) => r.status.startsWith('✅')).map((r) => [r.name, r.email, r.password, r.school, r.section, r.roll, r.role])))" ${ok.length ? '' : 'disabled'}>⬇ Download logins (${ok.length})</button></div>
+    <div class="tablewrap"><table><thead><tr><th>Status</th><th>Name</th><th>Email</th><th>Password</th><th>School</th><th>Class</th><th>Roll</th><th>Type</th></tr></thead><tbody>
+    ${ADDED.map((r) => `<tr><td>${r.status}</td><td>${r.uid ? `<a href="#student/${r.uid}">${esc(r.name)}</a>` : esc(r.name)}</td><td>${esc(r.email)}</td><td>${r.password ? `<code>${esc(r.password)}</code>` : '—'}</td><td>${esc(r.school)}</td><td>${esc(r.section)}</td><td>${esc(r.roll)}</td><td>${r.role}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
 // ---------- Access ----------
 function loginView(msg) {
   app.innerHTML = `<div class="auth panel"><h1>Admin login</h1>${msg ? `<p class="err">${msg}</p>` : ''}
@@ -175,7 +265,8 @@ function loginView(msg) {
 function route() {
   if (!ME) return;
   const h = location.hash; let m;
-  if ((m = h.match(/^#student\/(\w+)/))) studentView(m[1]);
+  if (h.startsWith('#add')) addView(h === '#add/bulk' ? 'bulk' : 'one');
+  else if ((m = h.match(/^#student\/(\w+)/))) studentView(m[1]);
   else if ((m = h.match(/^#review\/(\w+)\/(\d+)\/([\w-]+)/))) reviewView(m[1], +m[2], m[3]);
   else dashboard();
   window.scrollTo(0, 0);
